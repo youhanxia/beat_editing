@@ -36,6 +36,7 @@ def main(fn_bgm):
 
     # add heading 0
     beat_times_bgm = np.insert(beat_times_bgm, 0, 0)
+    beat_times_bgm = np.append(beat_times_bgm, librosa.get_duration(x_bgm, sr_bgm))
 
     # collect clips
     clip_names = os.listdir(clip_dir)
@@ -74,6 +75,7 @@ def main(fn_bgm):
     # fill in bgm beats
     flat_clips = []
     i = 0
+    n = 0
     while i < len(beat_times_bgm):
         print('\rconstructing beat at', i, end='')
         # create collage of clips
@@ -83,13 +85,18 @@ def main(fn_bgm):
         l = min(len(crop_factor) - 1, len(keys))
         if not l:
             break
-        n = random.choices(range(1, l + 1, 1), weights=[4, 2, 1, 1][:l])[0]
+        # n = random.choices(range(1, l + 1, 1), weights=[4, 2, 1, 1][:l])[0]
+        n = n % (len(crop_factor) - 1) + 1
+        if n > l:
+            n = l
         keys = random.sample(keys, k=n)
 
         collage_clips = []
         for key in keys:
             # for each batch
             temp_clips = clips[key].pop()
+            if len(beat_times_bgm) - 1 - i < batch_size:
+                temp_clips = temp_clips[:len(beat_times_bgm) - 1 - i]
             for j, temp_clip in enumerate(temp_clips):
                 # set start end time
                 s = beat_times_bgm[i + j + 1] - beat_times_bgm[i + j]
@@ -138,7 +145,7 @@ def audio_extraction():
 
 
 if __name__ == '__main__':
-    audio_extraction()
+    # audio_extraction()
     main('bgm.wav')
 
     os.system('say "Mission complete."')
