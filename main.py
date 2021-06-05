@@ -15,7 +15,7 @@ crop_factor = [
     [0, 0, 1, 1],
     [0, 0.25, 1, 0.75],
     [0, 1/3, 1, 2/3],
-    [0.25, 0.75, 0.25, 0.75]
+    [0.25, 0.25, 0.75, 0.75]
 ]
 reshape_format = [
     [],
@@ -28,18 +28,20 @@ reshape_format = [
 batch_size = 8
 
 
-def main(fn_bgm):
+def composition(fn_bgm):
     # load audio
     # .wav format
     x_bgm, sr_bgm = librosa.load(fn_bgm)
 
     # beat track
-    tempo, beat_times_bgm = librosa.beat.beat_track(x_bgm, sr=sr_bgm, start_bpm=200, units='time')
+    tempo, beat_times_bgm = librosa.beat.beat_track(
+        x_bgm, sr=sr_bgm, start_bpm=200, units='time')
     print('beats extracted:', len(beat_times_bgm))
 
     # add heading 0
     beat_times_bgm = np.insert(beat_times_bgm, 0, 0)
-    beat_times_bgm = np.append(beat_times_bgm, librosa.get_duration(x_bgm, sr_bgm))
+    beat_times_bgm = np.append(
+        beat_times_bgm, librosa.get_duration(x_bgm, sr_bgm))
 
     max_beat = len(beat_times_bgm) - 1
 
@@ -69,7 +71,6 @@ def main(fn_bgm):
             # for each batch
             temp_clips = clips[key].pop()
             if max_beat - i < batch_size:
-                print(max_beat - i)
                 temp_clips = temp_clips[:max_beat - i]
             for j, temp_clip in enumerate(temp_clips):
                 # set start end time
@@ -78,7 +79,8 @@ def main(fn_bgm):
 
                 if t < s:
                     # extend the segment
-                    temp_clips[j] = temp_clip.fx(mp.vfx.speedx, final_duration=s)
+                    temp_clips[j] = temp_clip.fx(
+                        mp.vfx.speedx, final_duration=s)
                 else:
                     # trim the segment
                     temp_clips[j] = temp_clip.subclip(t - s, t)
@@ -89,7 +91,8 @@ def main(fn_bgm):
         fac = crop_factor[n]
         l1, l2 = collage_clips[0].size
         for j, temp_clip in enumerate(collage_clips):
-            collage_clips[j] = temp_clip.crop(x1=l1 * fac[0], y1=l2 * fac[1], x2=l1 * fac[2], y2=l2 * fac[3])
+            collage_clips[j] = temp_clip.crop(
+                x1=l1 * fac[0], y1=l2 * fac[1], x2=l1 * fac[2], y2=l2 * fac[3])
 
         collage_clips = np.array(collage_clips).reshape(reshape_format[n])
         flat_clips.append(mp.clips_array(collage_clips))
@@ -122,9 +125,10 @@ def video_segmentation():
     # collect clips
     clip_names = os.listdir(clip_dir)
 
-    if segment_fn in clip_names:
-        with open(os.path.join(clip_dir, segment_fn), 'rb') as f:
-            return pickle.load(f)
+    n_mp4 = len(list(filter(lambda fn: fn.endswith('.mp4'), clip_names)))
+    n_wav = len(list(filter(lambda fn: fn.endswith('.wav'), clip_names)))
+    if n_wav < n_mp4:
+        audio_extraction()
 
     clip_names = list(filter(lambda fn: fn.endswith('.mp4'), clip_names))
 
@@ -141,20 +145,19 @@ def video_segmentation():
 
         # extract split point
         l1, sr = librosa.load(os.path.join(clip_dir, name[:-4] + '.wav'))
-        _, beat_times = librosa.beat.beat_track(l1, sr=sr, start_bpm=50, units='time')
+        _, beat_times = librosa.beat.beat_track(
+            l1, sr=sr, start_bpm=50, units='time')
         beat_times = np.insert(beat_times, 0, 0)
 
         temp_clips = []
         # segment the clip
         for j in range(len(beat_times) - 1):
-            temp_clips.append(temp_clip.subclip(beat_times[j], beat_times[j + 1]))
+            temp_clips.append(
+                temp_clip.subclip(beat_times[j], beat_times[j + 1]))
 
             if len(temp_clips) == batch_size:
                 clips[name].append(temp_clips)
                 temp_clips = []
-
-    with open(os.path.join(clip_dir, segment_fn), 'wb') as f:
-        pickle.dump(clips, f)
 
     print('\rsegmentation done')
 
@@ -162,7 +165,6 @@ def video_segmentation():
 
 
 if __name__ == '__main__':
-    # audio_extraction()
-    main('bgm.wav')
+    composition('bgm.wav')
 
     os.system('say "Mission complete."')
